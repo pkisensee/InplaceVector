@@ -19,6 +19,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include <array>
+#include <ranges>
 
 // Uncomment the following line to enable exceptions, or define this symbol at build time
 // #define PK_ENABLE_EXCEPTIONS 1
@@ -32,7 +34,6 @@
 
 namespace // anonymous
 {
-  /*
   // Requirements for object comparisons; see SynthThreeWay
   template <typename T>
   concept BooleanTestableImpl = std::convertible_to<T, bool>;
@@ -43,6 +44,7 @@ namespace // anonymous
       { !static_cast<T&&>( a ) } -> BooleanTestableImpl;
   };
 
+  /*
   // Helper converts input iterators into an array
   // Usage: std::array<int, Capacity> arr = MakeArray<InIt, Capacity>( vec.begin(), vec.end() );
   template<typename InIt, size_t Capacity>
@@ -77,13 +79,14 @@ namespace PKIsensee
 {
 
   template <typename T, size_t Capacity> // stack of objects T; maximum size Capacity
-  class array_stack
+  class inplace_vector
   {
   public:
 
     using Array = std::array<T, Capacity>;
     using container_type = Array;
     using value_type = typename Array::value_type;
+    using pointer = typename Array::pointer;
     using reference = typename Array::reference;
     using const_reference = typename Array::const_reference;
     using iterator = typename Array::iterator;
@@ -92,186 +95,304 @@ namespace PKIsensee
     using const_reverse_iterator = typename Array::const_reverse_iterator;
     using size_type = typename Array::size_type;
 
-    array_stack() = default;
-
-    constexpr explicit array_stack( const Array& c ) :
-      top_( c.size() ),
-      c_( c )
+    constexpr inplace_vector() noexcept
     {
+
+    }
+
+    constexpr explicit inplace_vector( size_type n )
+    {
+
+    }
+
+    constexpr inplace_vector( size_type n, const T& value )
+    {
+
     }
 
     template <typename InIt>
-    constexpr array_stack( InIt first, InIt last ) noexcept( std::is_nothrow_constructible_v<Array, InIt, InIt> ) :
-      top_( static_cast<size_t>( std::distance( first, last ) ) ),
-      c_{ MakeArray<InIt, Capacity>( first, last ) }
+    constexpr inplace_vector( InIt first, InIt last )
     {
     }
 
     template <typename Range>
-    constexpr array_stack( std::from_range_t, Range&& rng ) :
-      top_( std::size( rng ) ),
-      c_( MakeArray<Range, Capacity>( rng ) )
+    constexpr inplace_vector( std::from_range_t, Range&& rng )
+    {
+    }
+
+    constexpr inplace_vector( const inplace_vector& c )
+    {
+    }
+
+    constexpr inplace_vector( inplace_vector&& c )
+      noexcept( Capacity == 0 || std::is_nothrow_move_constructible_v<T> )
+    {
+    }
+
+    constexpr inplace_vector( std::initializer_list<T> il )
+    {
+    }
+
+    constexpr ~inplace_vector()
+    {
+    }
+
+    constexpr inplace_vector& operator=( const inplace_vector& rhs )
+    {
+      return *this;
+    }
+
+    constexpr inplace_vector& operator=( inplace_vector&& rhs )
+      noexcept( Capacity == 0 || ( std::is_nothrow_move_assignable_v<T> &&
+                            std::is_nothrow_move_constructible_v<T> ) )
+    {
+      return *this;
+    }
+
+    constexpr inplace_vector& operator=( std::initializer_list<T> il )
+    {
+      return *this;
+    }
+
+    template <typename InIt>
+    constexpr void assign( InIt first, InIt last )
+    {
+    }
+
+    template <typename Range>
+    constexpr void assign_range( Range&& rng )
+    {
+    }
+
+    constexpr void assign( size_type n, const T& u )
+    {
+    }
+
+    constexpr void assign( std::initializer_list<T> il )
     {
     }
 
     constexpr iterator begin() noexcept
     {
-      return c_.begin();
     }
 
     constexpr const_iterator begin() const noexcept
     {
-      return c_.begin();
     }
 
     constexpr const_iterator cbegin() const noexcept
     {
-      return begin();
     }
 
     constexpr iterator end() noexcept
     {
-      // end of stack is top element, not Capacity
-      return begin() + static_cast<ptrdiff_t>( top_ );
     }
 
     constexpr const_iterator end() const noexcept
     {
-      // end of stack is top element, not Capacity
-      return cbegin() + static_cast<ptrdiff_t>( top_ );
     }
 
     constexpr const_iterator cend() const noexcept
     {
-      return end();
     }
 
     constexpr reverse_iterator rbegin() noexcept
     {
-      return c_.rbegin();
     }
 
     constexpr const_reverse_iterator rbegin() const noexcept
     {
-      return c_.rbegin();
     }
 
     constexpr const_reverse_iterator crbegin() const noexcept
     {
-      return rbegin();
     }
 
     constexpr reverse_iterator rend() noexcept
     {
-      // end of stack is top element, not Capacity
-      return rbegin() + static_cast<ptrdiff_t>( top_ );
     }
 
     constexpr const_reverse_iterator rend() const noexcept
     {
-      // end of stack is top element, not Capacity
-      return crbegin() + static_cast<ptrdiff_t>( top_ );
     }
 
     constexpr const_reverse_iterator crend() const noexcept
     {
-      return rend();
     }
 
     constexpr bool empty() const noexcept
     {
-      return top_ == 0;
-    }
-
-    constexpr bool full() const noexcept
-    {
-      return top_ == Capacity;
     }
 
     constexpr size_type size() const noexcept
     {
-      return top_;
     }
 
-    constexpr size_type capacity() const noexcept
+    static constexpr size_type max_size() noexcept
+    {
+    }
+
+    static constexpr size_type capacity() noexcept
     {
       return Capacity;
     }
 
-    constexpr void clear() noexcept
+    constexpr void resize( size_type sz )
     {
-      top_ = 0;
     }
 
-    constexpr reference top() PK_MAY_THROW
+    constexpr void resize( size_type sz, const T& c )
     {
-      CheckForEmptyStack();
-      return c_[ top_ - 1 ];
     }
 
-    constexpr const_reference top() const PK_MAY_THROW
+    static constexpr void reserve( size_type n )
     {
-      CheckForEmptyStack();
-      return c_[ top_ - 1 ];
     }
 
-    constexpr void push( const value_type& v ) PK_MAY_THROW
+    static constexpr void shrink_to_fit() noexcept
     {
-      CheckForFullStack( 1 );
-      c_[ top_ ] = v;
-      ++top_;
     }
 
-    constexpr void push( value_type&& v ) PK_MAY_THROW
+    constexpr const_reference operator[]( size_type i ) const
     {
-      CheckForFullStack( 1 );
-      c_[ top_ ] = std::move( v );
-      ++top_;
+    }
+
+    constexpr reference operator[]( size_type i )
+    {
+    }
+
+    constexpr const_reference at( size_type i ) const
+    {
+    }
+
+    constexpr reference at( size_type i )
+    {
+    }
+
+    constexpr const_reference front() const
+    {
+    }
+
+    constexpr reference front()
+    {
+    }
+
+    constexpr const_reference back() const
+    {
+    }
+
+    constexpr reference back()
+    {
+    }
+
+    constexpr const T* data() const noexcept
+    {
+    }
+
+    constexpr T* data() noexcept
+    {
+    }
+
+    template <typename... Types>
+    constexpr reference emplace( Types&&... values )
+    {
+    }
+
+    constexpr reference push_back( const T& value )
+    {
+    }
+
+    constexpr reference push_back( T&& value )
+    {
     }
 
     template <typename Range>
-    constexpr void push_range( Range&& rng ) PK_MAY_THROW
+    constexpr void append_range( Range&& rng )
     {
-      CheckForFullStack( std::size( rng ) );
-      const auto dest = c_.data() + top_;
-      std::ranges::copy( rng, dest );
-      top_ += std::size( rng );
     }
 
-    template <class... Types>
-    constexpr decltype( auto ) emplace( Types&&... values ) PK_MAY_THROW
+    constexpr void pop_back()
     {
-      CheckForFullStack( 1 );
-      const auto dest = c_.data() + top_;
-      std::construct_at( dest, std::forward<Types>( values )... );
-      ++top_;
     }
 
-    constexpr void pop() PK_MAY_THROW
+    template <typename... Types>
+    constexpr pointer try_emplace_back( Types&&... values )
     {
-      CheckForEmptyStack();
-      --top_;
     }
 
-    constexpr void swap( array_stack& rhs ) noexcept( std::is_nothrow_swappable<Array>::value )
+    constexpr pointer try_push_back( const T& value )
     {
-      // Swap only what is necessary, not the entire arrays
-      const auto maxTop = std::max( top_, rhs.top_ );
-      for (size_t i = 0; i < maxTop; ++i)
-        std::swap( c_[ i ], rhs.c_[ i ] );
-      std::swap( top_, rhs.top_ );
     }
 
-    constexpr const_reference operator[]( size_type i ) const noexcept
+    constexpr pointer try_push_back( T&& value )
     {
-      assert( i < size() );
-      return c_[ i ];
     }
 
-    constexpr reference operator[]( size_type i ) noexcept
+    template <typename Range>
+    constexpr std::ranges::borrowed_iterator_t<Range> try_append_range( Range&& rng )
     {
-      assert( i < size() );
-      return c_[ i ];
+    }
+
+    template <typename... Types>
+    constexpr reference unchecked_emplace_back( Types&&... values )
+    {
+    }
+
+    constexpr reference unchecked_push_back( const T& value )
+    {
+    }
+
+    constexpr reference unchecked_push_back( T&& value )
+    {
+    }
+
+    template <typename... Types>
+    constexpr iterator emplace( const_iterator position, Types&&... values )
+    {
+    }
+
+    constexpr iterator insert( const_iterator position, const T& value )
+    {
+    }
+
+    constexpr iterator insert( const_iterator position, T&& value )
+    {
+    }
+
+    constexpr iterator insert( const_iterator position, size_type n, const T& value )
+    {
+    }
+
+    template <class InIt>
+    constexpr iterator insert( const_iterator position, InIt first, InIt last )
+    {
+    }
+
+    template <typename Range>
+    constexpr iterator insert_range( const_iterator position, Range&& rng )
+    {
+    }
+
+    constexpr iterator insert( const_iterator position, std::initializer_list<T> il )
+    {
+    }
+
+    constexpr iterator erase( const_iterator position )
+    {
+    }
+
+    constexpr iterator erase( const_iterator first, const_iterator last )
+    {
+    }
+
+    constexpr void clear() noexcept
+    {
+    }
+
+    constexpr void swap( inplace_vector& rhs )
+      noexcept( Capacity == 0 || ( std::is_nothrow_swappable_v<T> &&
+                                   std::is_nothrow_move_constructible_v<T> ) )
+    {
     }
 
   private:
@@ -303,28 +424,25 @@ namespace PKIsensee
 
   public:
 
-    constexpr bool operator==( const array_stack& rhs ) const noexcept
+    friend constexpr bool operator==( const inplace_vector& lhs, const inplace_vector& rhs ) noexcept
     {
-      if (top_ != rhs.top_) // different sized stacks are not equal
-        return false;
-      const auto start = c_.data();
-      const auto end = start + top_;
-      return std::equal( start, end, rhs.c_.data() );
     }
 
-    constexpr auto operator<=>( const array_stack& rhs ) const noexcept
+    friend constexpr auto operator<=>( const inplace_vector& lhs, const inplace_vector& rhs ) noexcept
     {
       // Can't use std::array::operator<=> because must only compare a subset of elements
-      const auto lhsStart = c_.data();
-      const auto lhsEnd = lhsStart + top_;
-      const auto rhsStart = rhs.c_.data();
-      const auto rhsEnd = rhsStart + rhs.top_;
-      return std::lexicographical_compare_three_way( lhsStart, lhsEnd,
-        rhsStart, rhsEnd, SynthThreeWay{} );
+    }
+
+    friend constexpr void swap( inplace_vector& lhs, inplace_vector& rhs )
+      noexcept( Capacity == 0 || ( std::is_nothrow_swappable_v<T> &&
+                                   std::is_nothrow_move_constructible_v<T> ) )
+    {
+      lhs.swap( rhs );
     }
 
   private:
 
+    /*
     void CheckForEmptyStack() const
     {
 #if defined(PK_ENABLE_EXCEPTIONS)
@@ -356,16 +474,10 @@ namespace PKIsensee
 
     size_t top_ = 0;
     Array c_;
+    */
 
-  }; // class array_stack
-
-  template <typename T, size_t Capacity>
-  void constexpr swap( array_stack<T, Capacity>& lhs,
-    array_stack<T, Capacity>& rhs ) noexcept( noexcept( lhs.swap( rhs ) ) )
-  {
-    lhs.swap( rhs );
-  }
-
+  }; // class inplace_vector
+  
 } // namespace PKIsensee
 
 ///////////////////////////////////////////////////////////////////////////////
