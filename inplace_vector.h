@@ -20,6 +20,8 @@
 
 #pragma once
 #include <array>
+#include <cstddef>
+#include <iterator>
 #include <ranges>
 
 // Uncomment the following line to enable exceptions, or define this symbol at build time
@@ -27,9 +29,9 @@
 
 #if defined(PK_ENABLE_EXCEPTIONS)
 #include <stdexcept>
-#define PK_MAY_THROW noexcept(false) // indicates function may throw
+constexpr auto PK_MAY_THROW = noexcept( false ); // indicates function may throw
 #else
-#define PK_MAY_THROW noexcept(true) // function will not throw
+constexpr auto PK_MAY_THROW = noexcept( true ); // function will not throw
 #endif
 
 namespace // anonymous
@@ -77,37 +79,69 @@ namespace // anonymous
 
 namespace PKIsensee
 {
+  template <typename T, size_t Capacity>
+  class InplaceVecStorage
+  {
+  public:
+    constexpr T* data( size_t i = 0 ) noexcept
+    {
+      assert( i < Capacity );
+      return reinterpret_cast<T*>( blk_ ) + i;
+    }
 
-  template <typename T, size_t Capacity> // stack of objects T; maximum size Capacity
+    constexpr const T* data( size_t i = 0 ) const noexcept
+    {
+      assert( i < Capacity );
+      return reinterpret_cast<T*>( blk_ ) + i;
+    }
+
+    constexpr T& ref( size_t i = 0 ) noexcept
+    {
+      return *data( i );
+    }
+
+    constexpr const T& ref( size_t i = 0 ) const noexcept
+    {
+      return *data( i );
+    }
+
+  private:
+
+    // Properly aligned bytes with sufficient size to store all elements T on the stack.
+    // Not default constructed for max speed; just a raw uninitialized array of bytes.
+    alignas( T ) std::byte blk_[ sizeof( T ) * Capacity ];
+  };
+
+  // Contignuous vector of objects T on stack; maximum size Capacity
+  template <typename T, size_t Capacity> 
   class inplace_vector
   {
   public:
 
-    using Array = std::array<T, Capacity>;
-    using container_type = Array;
-    using value_type = typename Array::value_type;
-    using pointer = typename Array::pointer;
-    using reference = typename Array::reference;
-    using const_reference = typename Array::const_reference;
-    using iterator = typename Array::iterator;
-    using const_iterator = typename Array::const_iterator;
-    using reverse_iterator = typename Array::reverse_iterator;
-    using const_reverse_iterator = typename Array::const_reverse_iterator;
-    using size_type = typename Array::size_type;
+    using value_type             = T;
+    using pointer                = T*;
+    using const_pointer          = const T*;
+    using reference              = value_type&;
+    using const_reference        = const value_type&;
+    using size_type              = size_t;
+    using difference_type        = ptrdiff_t;
+    using iterator               = pointer;
+    using const_iterator         = const_pointer;
+    using reverse_iterator       = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     constexpr inplace_vector() noexcept
     {
-
     }
 
     constexpr explicit inplace_vector( size_type n )
     {
-
+      // default initialize first n elements
     }
 
     constexpr inplace_vector( size_type n, const T& value )
     {
-
+      // initialize first n elements to contain value
     }
 
     template <typename InIt>
@@ -120,11 +154,11 @@ namespace PKIsensee
     {
     }
 
-    constexpr inplace_vector( const inplace_vector& c )
+    constexpr inplace_vector( const inplace_vector& c ) // copy ctor
     {
     }
 
-    constexpr inplace_vector( inplace_vector&& c )
+    constexpr inplace_vector( inplace_vector&& c ) // move ctor
       noexcept( Capacity == 0 || std::is_nothrow_move_constructible_v<T> )
     {
     }
@@ -135,6 +169,11 @@ namespace PKIsensee
 
     constexpr ~inplace_vector()
     {
+      if constexpr( !std::is_trivial_v<T> )
+      {
+        for( auto& e : *this )
+          std::destroy_at( std::addressof( e ) );
+      }
     }
 
     constexpr inplace_vector& operator=( const inplace_vector& rhs )
@@ -174,50 +213,62 @@ namespace PKIsensee
 
     constexpr iterator begin() noexcept
     {
+      return c_.data();
     }
 
     constexpr const_iterator begin() const noexcept
     {
+      return c_.data();
     }
 
     constexpr const_iterator cbegin() const noexcept
     {
+      return c_.data();
     }
 
     constexpr iterator end() noexcept
     {
+      return begin() + size();
     }
 
     constexpr const_iterator end() const noexcept
     {
+      return begin() + size();
     }
 
     constexpr const_iterator cend() const noexcept
     {
+      return cbegin() + size();
     }
 
     constexpr reverse_iterator rbegin() noexcept
     {
+      return reverse_iterator( end() );
     }
 
     constexpr const_reverse_iterator rbegin() const noexcept
     {
+      return const_reverse_iterator( end() );
     }
 
     constexpr const_reverse_iterator crbegin() const noexcept
     {
+      return const_reverse_iterator( cend() );
     }
 
     constexpr reverse_iterator rend() noexcept
     {
+      return reverse_iterator( begin() );
     }
 
     constexpr const_reverse_iterator rend() const noexcept
     {
+      return const_reverse_iterator( begin() );
     }
 
     constexpr const_reverse_iterator crend() const noexcept
     {
+      return const_reverse_iterator( cbegin() );
     }
 
     constexpr bool empty() const noexcept
@@ -226,6 +277,7 @@ namespace PKIsensee
 
     constexpr size_type size() const noexcept
     {
+      return size_;
     }
 
     static constexpr size_type max_size() noexcept
@@ -279,10 +331,14 @@ namespace PKIsensee
 
     constexpr const_reference back() const
     {
+      assert( size() > 0 );
+      return c_.ref( size() - 1 );
     }
 
     constexpr reference back()
     {
+      assert( size() > 0 );
+      return c_.ref( size() - 1 );
     }
 
     constexpr const T* data() const noexcept
@@ -335,7 +391,12 @@ namespace PKIsensee
 
     template <typename... Types>
     constexpr reference unchecked_emplace_back( Types&&... values )
+      requires( std::constructible_from< T, Types... > )
     {
+      assert( size() < capacity() );
+      std::construct_at( end(), std::forward<Types>( values )... );
+      ++size_;
+      return back();
     }
 
     constexpr reference unchecked_push_back( const T& value )
@@ -441,6 +502,14 @@ namespace PKIsensee
     }
 
   private:
+
+    InplaceVecStorage< T, Capacity > c_;
+
+    // size_ indicates where the *next* element will be push_back()'ed
+    // end()        -> return c_.data() + size_;
+    // push_back(x) -> construct_at(end(), x); ++size_;
+    // empty()      -> return size_ == 0;
+    size_t size_ = 0;
 
     /*
     void CheckForEmptyStack() const
