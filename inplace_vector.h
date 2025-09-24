@@ -115,6 +115,8 @@ public:
   {
     for ( auto&& e : other )
       emplace_back( std::move( e ) );
+    other.size_ = 0;
+    // TODO validate that "other" elements have been destroyed
   }
 
   constexpr inplace_vector( std::initializer_list<T> iList )
@@ -409,6 +411,7 @@ public:
     requires( std::constructible_from< T, const T& > && std::copyable<T> )
   {
     assert( pos >= begin() && pos <= end() );
+
     // Inserts new elements before pos by adding them to the end and 
     // then rotating them into place
     auto newElementsStartPos = end();
@@ -429,13 +432,19 @@ public:
   {
     assert( pos >= begin() && pos <= end() );
     assert( first <= last );
+
     // Inserts new elements before pos by adding them to the end and 
     // then rotating them into place
     auto newElementsStartPos = end();
     for ( ; first != last; ++first )
       emplace_back( ::std::move( *first ) );
-    std::rotate( pos, newElementsStartPos, end() );
-    return pos;
+
+    // Iterators must be consistent (all non-const) in rotate call;
+    // safe cast because neither the pointer itself nor what it points 
+    // to is changing TODO common function
+    auto start = const_cast< iterator >( pos );
+    std::rotate( start, newElementsStartPos, end() );
+    return start;
   }
 
   constexpr iterator insert( const_iterator pos, std::initializer_list<T> iList )
@@ -648,15 +657,17 @@ public:
 
   friend constexpr bool operator==( const inplace_vector& lhs, const inplace_vector& rhs ) noexcept
   {
-    return ( lhs.size() == rhs.size() ) && std::ranges::equal( lhs, rhs );
+    if ( lhs.size() != rhs.size() )
+      return false;
+    return std::ranges::equal( lhs, rhs );
   }
 
   friend constexpr auto operator<=>( const inplace_vector& lhs, const inplace_vector& rhs ) noexcept
   {
     if ( lhs.size() < rhs.size() )
-      return -1;
+      return std::strong_ordering::less;
     if ( lhs.size() > rhs.size() )
-      return 1;
+      return std::strong_ordering::greater;
 
     // Sizes equivalent
     return std::lexicographical_compare_three_way( std::begin( lhs ), std::end( lhs ),
@@ -673,24 +684,24 @@ public:
 
 private:
 
-  constexpr T* getPtr( size_t i = 0 ) noexcept
+  constexpr pointer getPtr( size_t i = 0 ) noexcept
   {
     assert( i < Capacity );
-    return reinterpret_cast< T* >( data_ ) + i; // safe on aligned std::byte array of T
+    return reinterpret_cast< pointer >( data_ ) + i; // safe on aligned std::byte array of T
   }
 
-  constexpr const T* getPtr( size_t i = 0 ) const noexcept
+  constexpr const_pointer getPtr( size_t i = 0 ) const noexcept
   {
     assert( i < Capacity );
-    return reinterpret_cast< T* >( data_ ) + i; // safe on aligned std::byte array of T
+    return reinterpret_cast< const_pointer >( data_ ) + i; // safe on aligned std::byte array of T
   }
 
-  constexpr T& getRef( size_t i = 0 ) noexcept
+  constexpr reference getRef( size_t i = 0 ) noexcept
   {
     return *getPtr( i );
   }
 
-  constexpr const T& getRef( size_t i = 0 ) const noexcept
+  constexpr const_reference getRef( size_t i = 0 ) const noexcept
   {
     return *getPtr( i );
   }
