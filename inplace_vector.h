@@ -415,11 +415,12 @@ public:
     for ( size_type i = 0; i < count; ++i )
       emplace_back( value );
 
-    // Iterators must be consistent in call to rotate; safe cast because
-    // neither to pointer itself nor what it points to is changing
-    auto position = const_cast< T* >( pos ); 
-    std::rotate( position, newElementsStartPos, end() );
-    return position;
+    // Iterators must be consistent (all non-const) in rotate call;
+    // safe cast because neither the pointer itself nor what it points 
+    // to is changing
+    auto first = const_cast< iterator >( pos ); 
+    std::rotate( first, newElementsStartPos, end() );
+    return first;
   }
 
   template <class InIt>
@@ -427,6 +428,7 @@ public:
     requires( std::constructible_from< T, std::iter_reference_t< InIt> >&& std::movable<T> )
   {
     assert( pos >= begin() && pos <= end() );
+    assert( first <= last );
     // Inserts new elements before pos by adding them to the end and 
     // then rotating them into place
     auto newElementsStartPos = end();
@@ -553,7 +555,7 @@ public:
   {
     // Returns an iterator pointing to the first element of rng that was not inserted,
     // or rng.end() if all elements were inserted
-    for( auto it = std::begin(rng); it != std::end(rng); ++it )
+    for( auto it = std::begin( rng ); it != std::end( rng ); ++it )
     {
       if ( size() == capacity() )
         return it;
@@ -603,6 +605,8 @@ private:
   template <class InIt>
   void destroy( InIt first, InIt last ) noexcept( std::is_nothrow_destructible_v<T> )
   {
+    assert( first <= last );
+    assert( first >= begin() && last <= end() );
     if constexpr ( !std::is_trivial_v<T> )
     {
       // dtors only necessary for non-trivial objects
