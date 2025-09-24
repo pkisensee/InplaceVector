@@ -414,8 +414,12 @@ public:
     auto newElementsStartPos = end();
     for ( size_type i = 0; i < count; ++i )
       emplace_back( value );
-    std::rotate( pos, newElementsStartPos, end() );
-    return pos;
+
+    // Iterators must be consistent in call to rotate; safe cast because
+    // neither to pointer itself nor what it points to is changing
+    auto position = const_cast< T* >( pos ); 
+    std::rotate( position, newElementsStartPos, end() );
+    return position;
   }
 
   template <class InIt>
@@ -464,8 +468,10 @@ public:
   constexpr reference emplace_back( Types&&... values )
     requires( std::constructible_from< T, Types... > )
   {
-    if ( !try_emplace_back( std::forward<Types>( values )... ) )
+    auto newItemPtr = try_emplace_back( std::forward<Types>( values )... );
+    if ( newItemPtr == nullptr )
       throw std::bad_alloc();
+    return *newItemPtr;
   }
 
   template <typename... Types>
