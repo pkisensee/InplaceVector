@@ -28,20 +28,11 @@
 #include <new>
 #include <ranges>
 #include <stdexcept>
-
-// Uncomment the following line to enable exceptions, or define this symbol at build time
-// #define PK_ENABLE_EXCEPTIONS 1
-
-#if defined(PK_ENABLE_EXCEPTIONS)
-#include <stdexcept>
-constexpr auto PK_MAY_THROW = noexcept( false ); // indicates function may throw
-#else
-constexpr auto PK_MAY_THROW = noexcept( true ); // function will not throw
-#endif
+#include <vector>
 
 namespace // anonymous
 {
-  // Requirements for object comparisons; see SynthThreeWay
+  // Requirements for object comparisons; see SynthThreeWay below
   template <typename T>
   concept BooleanTestableImpl = std::convertible_to<T, bool>;
 
@@ -51,35 +42,6 @@ namespace // anonymous
       { !static_cast<T&&>( a ) } -> BooleanTestableImpl;
   };
 
-  /*
-  // Helper converts input iterators into an array
-  // Usage: std::array<int, Capacity> arr = MakeArray<InIt, Capacity>( vec.begin(), vec.end() );
-  template<typename InIt, size_t Capacity>
-  constexpr auto MakeArray( InIt first, InIt last )
-  {
-    const auto count = std::distance( first, last );
-    assert( count <= Capacity );
-    using ValType = typename std::iterator_traits<InIt>::value_type;
-    std::array<ValType, Capacity> arr;
-    std::copy_n( first, count, std::begin( arr ) );
-    return arr;
-  }
-
-  // Helper converts range into an array
-  // Usage: std::array<int, Capacity> arr = MakeArray<Range, Capacity>( rng );
-  template<typename Range, size_t Capacity>
-  constexpr auto MakeArray( Range&& rng )
-    requires std::ranges::sized_range<decltype( rng )>
-  {
-    const auto count = static_cast<int64_t>( std::ranges::size( rng ) );
-    assert( count <= Capacity );
-    using ValType = std::iter_value_t<decltype( rng )>;
-    std::array<ValType, Capacity> arr;
-    std::ranges::copy_n( std::begin( rng ), count, std::begin( arr ) );
-    return arr;
-  }
-  */
-
 }; // namespace anonymous
 
 namespace PKIsensee
@@ -88,26 +50,26 @@ namespace PKIsensee
   class InplaceVecStorage
   {
   public:
-    constexpr T* data( size_t i = 0 ) noexcept
+    constexpr T* getPtr( size_t i = 0 ) noexcept
     {
       assert( i < Capacity );
       return reinterpret_cast<T*>( blk_ ) + i;
     }
 
-    constexpr const T* data( size_t i = 0 ) const noexcept
+    constexpr const T* getPtr( size_t i = 0 ) const noexcept
     {
       assert( i < Capacity );
       return reinterpret_cast<T*>( blk_ ) + i;
     }
 
-    constexpr T& ref( size_t i = 0 ) noexcept
+    constexpr T& getRef( size_t i = 0 ) noexcept
     {
-      return *data( i );
+      return *getPtr( i );
     }
 
-    constexpr const T& ref( size_t i = 0 ) const noexcept
+    constexpr const T& getRef( size_t i = 0 ) const noexcept
     {
-      return *data( i );
+      return *getPtr( i );
     }
 
   private:
@@ -137,27 +99,27 @@ namespace PKIsensee
 
     // Constructors -----------------------------------------------------------
 
-    constexpr inplace_vector() noexcept = default;
+    constexpr inplace_vector() noexcept = default; // data() == nullptr and size() == 0
 
-    constexpr explicit inplace_vector( size_type n )
+    constexpr explicit inplace_vector( size_type count )
       requires( std::constructible_from< T, T&& > && std::default_initializable<T> )
     {
-      // default initialize first n elements
-      assert( n < capacity() );
-      for ( size_type i = 0; i < n; ++i )
+      // default initialize first count elements
+      assert( count < capacity() );
+      for ( size_type i = 0; i < count; ++i )
         emplace_back( T{} );
     }
 
-    constexpr inplace_vector( size_type n, const T& value )
+    constexpr inplace_vector( size_type count, const T& value )
       requires( std::constructible_from< T, const T& > && std::copyable<T> )
     {
-      // initialize first n elements to contain value
-      insert( begin(), n, value );
+      // initialize first count elements to contain value
+      insert( begin(), count, value );
     }
 
     template <typename InIt>
     constexpr inplace_vector( InIt first, InIt last )
-      requires( std::constructible_from< T, std::iter_reference_t<InIt>> && std::movable<T> )
+      requires( std::constructible_from< T, std::iter_reference_t< InIt > > && std::movable<T> )
     {
       insert( begin(), first, last );
     }
@@ -169,23 +131,23 @@ namespace PKIsensee
       insert_range( begin(), std::forward<Range&&>( rng ) );
     }
 
-    constexpr inplace_vector( const inplace_vector& c ) // copy ctor
+    constexpr inplace_vector( const inplace_vector& other ) // copy ctor
       requires( std::copyable<T> )
     {
-      for ( auto&& e : c )
+      for ( auto&& e : other )
         emplace_back( e );
     }
 
-    constexpr inplace_vector( inplace_vector&& c ) // move ctor
+    constexpr inplace_vector( inplace_vector&& other ) // move ctor
       noexcept( Capacity == 0 || std::is_nothrow_move_constructible_v<T> )
       requires( std::movable<T> )
     {
-      for ( auto&& e : c )
+      for ( auto&& e : other )
         emplace_back( std::move( e ) );
     }
 
     constexpr inplace_vector( std::initializer_list<T> iList )
-      requires( std::constructible_from< T, std::ranges::range_reference_t<std::initializer_list<T>>> && 
+      requires( std::constructible_from< T, std::ranges::range_reference_t< std::initializer_list< T > > > && 
                 std::movable<T> )
     {
       insert( begin(), iList );
@@ -195,14 +157,10 @@ namespace PKIsensee
 
     constexpr ~inplace_vector()
     {
-      if constexpr( !std::is_trivial_v<T> )
-      {
-        for ( auto& e : *this )
-          std::destroy_at( std::addressof( e ) );
-      }
+      destroy( begin(), end() );
     }
 
-    // Operators --------------------------------------------------------------
+    // Assigment --------------------------------------------------------------
 
     constexpr inplace_vector& operator=( const inplace_vector& rhs ) // copy assignment
       requires( std::copyable<T> )
@@ -225,61 +183,129 @@ namespace PKIsensee
     }
 
     constexpr inplace_vector& operator=( std::initializer_list<T> iList )
-      requires( std::constructible_from< T, std::ranges::range_reference_t<std::initializer_list<T>>> &&
+      requires( std::constructible_from< T, std::ranges::range_reference_t< std::initializer_list< T > > > &&
                 std::movable<T> )
     {
       assign( iList );
       return *this;
     }
 
-    // Assignment -------------------------------------------------------------
+    constexpr void assign( size_type count, const T& value )
+      requires( std::constructible_from< T, const T& > && std::movable<T> )
+    {
+      clear();
+      insert( begin(), count, value );
+    }
 
     template <typename InIt>
     constexpr void assign( InIt first, InIt last )
-      requires( std::constructible_from< T, std::iter_reference_t<InIt>> && std::movable<T> )
+      requires( std::constructible_from< T, std::iter_reference_t< InIt > > && std::movable<T> )
     {
       clear();
       insert( begin(), first, last );
     }
 
-    template <typename Range>
-    constexpr void assign_range( Range&& rng )
-      requires( std::constructible_from< T, std::ranges::range_reference_t<Range>> && 
-                std::movable<T> )
-    {
-      assign( std::begin( rng ), std::end( rng ) );
-    }
-
-    constexpr void assign( size_type n, const T& value )
-      requires( std::constructible_from< T, const T& > && std::movable<T> )
-    {
-      clear();
-      insert( begin(), n, value );
-    }
-
     constexpr void assign( std::initializer_list<T> iList )
-      requires( std::constructible_from< T, std::ranges::range_reference_t< std::initializer_list<T>>> && 
+      requires( std::constructible_from< T, std::ranges::range_reference_t< std::initializer_list< T > > > &&
                 std::movable<T> )
     {
       clear();
       insert_range( begin(), iList );
     }
 
+    template <typename Range>
+    constexpr void assign_range( Range&& rng )
+      requires( std::constructible_from< T, std::ranges::range_reference_t< Range > > && 
+                std::movable<T> )
+    {
+      assign( std::begin( rng ), std::end( rng ) );
+    }
+
+    // Element access ---------------------------------------------------------
+
+    constexpr const_reference operator[]( size_type i ) const
+    {
+      assert( i < size_ );
+      return data_.getRef( i ); // TODO reference()
+    }
+
+    constexpr reference operator[]( size_type i )
+    {
+      assert( i < size() );
+      return data_.getRef( i );
+    }
+
+    constexpr const_reference at( size_type i ) const
+    {
+      if ( i >= size() )
+        throw std::out_of_range( "inplace_vector::at" );
+      return data_.getRef( i );
+    }
+
+    constexpr reference at( size_type i )
+    {
+      if ( i >= size() )
+        throw std::out_of_range( "inplace_vector::at" );
+      return data_.getRef( i );
+    }
+
+    constexpr const_reference front() const
+    {
+      assert( size() > 0 );
+      return data_.getRef();
+    }
+
+    constexpr reference front()
+    {
+      assert( size() > 0 );
+      return data_.getRef();
+    }
+
+    constexpr const_reference back() const
+    {
+      assert( size() > 0 );
+      return data_.getRef( size() - 1 );
+    }
+
+    constexpr reference back()
+    {
+      assert( size() > 0 );
+      return data_.getRef( size() - 1 );
+    }
+
+    constexpr const T* data() const noexcept
+    {
+      // For efficiency, this implementation does not return nullptr if empty() is true.
+      // This is standard compliant. In order to detect potential errors, debug versions
+      // will assert if the container is empty.
+      assert( size() > 0 );
+      return data_.getPtr();
+    }
+
+    constexpr T* data() noexcept
+    {
+      // For efficiency, this implementation does not return nullptr if empty() is true.
+      // This is standard compliant. In order to detect potential errors, debug versions
+      // will assert if the container is empty.
+      assert( size() > 0 );
+      return data_.getPtr();
+    }
+
     // Iterators --------------------------------------------------------------
 
     constexpr iterator begin() noexcept
     {
-      return data_.data();
+      return data_.getPtr();
     }
 
     constexpr const_iterator begin() const noexcept
     {
-      return data_.data();
+      return data_.getPtr();
     }
 
     constexpr const_iterator cbegin() const noexcept
     {
-      return data_.data();
+      return data_.getPtr();
     }
 
     constexpr iterator end() noexcept
@@ -327,7 +353,7 @@ namespace PKIsensee
       return const_reverse_iterator( cbegin() );
     }
 
-    // State ------------------------------------------------------------------
+    // Size and capacity ------------------------------------------------------
 
     constexpr bool empty() const noexcept
     {
@@ -351,54 +377,41 @@ namespace PKIsensee
 
     // Resizing ---------------------------------------------------------------
 
-    constexpr void resize( size_type sz )
-      requires( std::constructible_from< T, T&& > && std::default_initializable<T> )
+    constexpr void resize( size_type count )
+      requires( std::constructible_from< T, const T& > && std::default_initializable<T> )
     {
-      if ( sz == size() )
+      resize( count, T{} );
+    }
+
+    constexpr void resize( size_type count, const T& value )
+      requires( std::constructible_from< T, const T& > )
+    {
+      if ( count == size() )
         return;
 
-      if ( sz > capacity() )
+      if ( count > capacity() )
         throw std::bad_alloc();
 
-      // Shrinking vector: erase last elements
-      if ( sz < size() )
+      // Shrink vector: erase last elements
+      if ( count < size() )
       {
-        destroy( begin() + sz, end() );
-        size_ = sz;
+        destroy( begin() + count, end() );
+        size_ = count;
       }
 
-      // Growing vector: append default-inserted elements
+      // Grow vector: append default-inserted elements
       else
       {
-        while (size() != sz)
+        while ( size() != count )
           emplace_back( T{} );
       }
     }
 
-    constexpr void resize( size_type sz, const T& value )
+    static constexpr void reserve( size_type newCapacity )
     {
-      if ( sz == size() )
-        return;
-
-      if ( sz > Capacity )
-        throw std::bad_alloc();
-
-      // Shrinking vector: erase last elements
-      if ( sz < size() )
-      {
-        destroy( begin() + sz, end() );
-        size_ = sz;
-      }
-
-      // Growing vector: append default-inserted elements
-      else
-        insert( end(), sz - size(), value );
-    }
-
-    static constexpr void reserve( size_type n )
-    {
-      // inplace_vector already reserves Capacity elements
-      if ( n > Capacity )
+      // inplace_vector already reserves Capacity elements, so reserve() 
+      // is technically unnecessary but still a required method
+      if ( newCapacity > Capacity )
         throw std::bad_alloc();
     }
 
@@ -407,105 +420,81 @@ namespace PKIsensee
       // nothing required; no effects
     }
 
-    // Direct access ----------------------------------------------------------
+    // Modifiers --------------------------------------------------------------
 
-    constexpr const_reference operator[]( size_type i ) const
+    constexpr iterator insert( const_iterator pos, const T& value )
+      requires( std::constructible_from< T, const T& > && std::copyable<T> )
     {
-      assert( i < size_ );
-      return data_.ref( i );
+      return insert( pos, 1, value );
     }
 
-    constexpr reference operator[]( size_type i )
+    constexpr iterator insert( const_iterator pos, T&& value )
+      requires( std::constructible_from< T, T&& >&& std::movable<T> )
     {
-      assert( i < size() );
-      return data_.ref( i );
+      return emplace( pos, ::std::move( value ) );
     }
 
-    constexpr const_reference at( size_type i ) const
+    constexpr iterator insert( const_iterator pos, size_type count, const T& value )
+      requires( std::constructible_from< T, const T& > && std::copyable<T> )
     {
-      if ( i >= size() )
-        throw std::out_of_range( "inplace_vector::at" );
-      return data_.ref( i );
+      assert( pos >= begin() && pos <= end() );
+      // Inserts new elements before pos by adding them to the end and 
+      // then rotating them into place
+      auto newElementsStartPos = end();
+      for ( size_type i = 0; i < count; ++i )
+        emplace_back( value );
+      std::rotate( pos, newElementsStartPos, end() );
+      return pos;
     }
 
-    constexpr reference at( size_type i )
+    template <class InIt>
+    constexpr iterator insert( const_iterator pos, InIt first, InIt last )
+      requires( std::constructible_from< T, std::iter_reference_t< InIt> >&& std::movable<T> )
     {
-      if ( i >= size() )
-        throw std::out_of_range( "inplace_vector::at" );
-      return data_.ref( i );
+      assert( pos >= begin() && pos <= end() );
+      // Inserts new elements before pos by adding them to the end and 
+      // then rotating them into place
+      auto newElementsStartPos = end();
+      for ( ; first != last; ++first )
+        emplace_back( ::std::move( *first ) );
+      std::rotate( pos, newElementsStartPos, end() );
+      return pos;
     }
 
-    constexpr const_reference front() const
+    constexpr iterator insert( const_iterator pos, std::initializer_list<T> iList )
+      requires( std::constructible_from< T, std::ranges::range_reference_t< std::initializer_list< T > > > &&
+                std::movable<T> )
     {
-      assert( size() > 0 );
-      return data_.ref();
-    }
-
-    constexpr reference front()
-    {
-      assert( size() > 0 );
-      return data_.ref();
-    }
-
-    constexpr const_reference back() const
-    {
-      assert( size() > 0 );
-      return data_.ref( size() - 1 );
-    }
-
-    constexpr reference back()
-    {
-      assert( size() > 0 );
-      return data_.ref( size() - 1 );
-    }
-
-    constexpr const T* data() const noexcept
-    {
-      assert( size() > 0 );
-      assert( data() == addressof( front() ) );
-      return data_.data();
-    }
-
-    constexpr T* data() noexcept
-    {
-      assert( size() > 0 );
-      assert( data() == addressof( front() ) );
-      return data_.data();
-    }
-
-    // Add elements -----------------------------------------------------------
-
-    constexpr reference push_back( const T& value )
-      requires( std::constructible_from<T, const T&> )
-    {
-      emplace_back( value );
-      return back();
-    }
-
-    constexpr reference push_back( T&& value )
-      requires( std::constructible_from<T, T&&> )
-    {
-      emplace_back( std::forward<T&&>( value ) );
-      return back();
+      return insert( pos, std::begin( iList ), std::end( iList ) );
     }
 
     template <typename Range>
-    constexpr void append_range( Range&& rng )
-      requires( std::constructible_from< T, std::ranges::range_reference_t<Range>> )
+    constexpr iterator insert_range( const_iterator pos, Range&& rng )
+      requires( std::constructible_from< T, std::ranges::range_reference_t< Range > > && 
+                std::movable<T> )
     {
-      for ( auto&& e : rng )
-      {
-        if ( size() == capacity() )
-          throw std::bad_alloc( "range too long in append_range" );
-        emplace_back( std::forward<decltype( e )>( e ) );
-      }
+      return insert( pos, std::begin( rng ), std::end( rng ) );
     }
 
-    constexpr void pop_back()
+    template <typename... Types>
+    constexpr iterator emplace( const_iterator pos, Types&&... values )
+      requires( std::constructible_from< T, Types... > && std::movable<T> )
     {
-      assert( size() > 0 );
-      destroy( end() - 1, end() );
-      --size_;
+      assert( pos >= begin() && pos <= end() );
+      // Inserts a new element before pos by adding it to the end and 
+      // then rotating it into place
+      auto newElementPos = end();
+      emplace_back( std::forward<Types>( values )... );
+      std::rotate( pos, newElementPos, end() );
+      return pos;
+    }
+
+    template <typename... Types>
+    constexpr reference emplace_back( Types&&... values )
+      requires( std::constructible_from< T, Types... > )
+    {
+      if ( !try_emplace_back( std::forward<Types>( values )... ) )
+        throw std::bad_alloc();
     }
 
     template <typename... Types>
@@ -520,16 +509,65 @@ namespace PKIsensee
       return std::addressof( back() );
     }
 
+    template <typename... Types>
+    constexpr reference unchecked_emplace_back( Types&&... values )
+      requires( std::constructible_from< T, Types... > )
+    {
+      assert( size() < capacity() );
+      return *try_emplace_back( std::forward<Types>( values )... );
+    }
+
+    constexpr reference push_back( const T& value )
+      requires( std::constructible_from< T, const T& > )
+    {
+      emplace_back( value );
+      return back();
+    }
+
+    constexpr reference push_back( T&& value )
+      requires( std::constructible_from< T, T&& > )
+    {
+      emplace_back( std::forward<T&&>( value ) );
+      return back();
+    }
+
     constexpr pointer try_push_back( const T& value )
-      requires( std::constructible_from<T, const T&> )
+      requires( std::constructible_from< T, const T& > )
     {
       return try_emplace_back( value );
     }
 
     constexpr pointer try_push_back( T&& value )
-      requires( std::constructible_from<T, T&&> )
+      requires( std::constructible_from< T, T&& > )
     {
       return try_emplace_back( std::forward<T&&>( value ) );
+    }
+
+    constexpr reference unchecked_push_back( const T& value )
+    {
+      assert( size() < capacity() );
+      return *try_push_back( std::forward< decltype( value ) >( value ) );
+    }
+
+    constexpr reference unchecked_push_back( T&& value )
+    {
+      assert( size() < capacity() );
+      return *try_push_back( std::forward< decltype( value ) >( value ) );
+    }
+
+    constexpr void pop_back()
+    {
+      assert( size() > 0 );
+      destroy( end() - 1, end() );
+      --size_;
+    }
+
+    template <typename Range>
+    constexpr void append_range( Range&& rng )
+      requires( std::constructible_from< T, std::ranges::range_reference_t< Range > > )
+    {
+      for ( auto&& e : rng )
+        emplace_back( std::forward< decltype( e ) >( e ) );
     }
 
     template <typename Range>
@@ -537,7 +575,7 @@ namespace PKIsensee
       requires( std::constructible_from< T, std::ranges::range_reference_t<Range>> )
     {
       // Returns an iterator pointing to the first element of rng that was not inserted,
-      // or ranges::end(rng) if all elements were inserted
+      // or rng.end() if all elements were inserted
       for( auto it = std::begin(rng); it != std::end(rng); ++it )
       {
         if ( size() == capacity() )
@@ -547,102 +585,55 @@ namespace PKIsensee
       return std::ranges::end( rng );
     }
 
-    template <typename... Types>
-    constexpr reference unchecked_emplace_back( Types&&... values )
-      requires( std::constructible_from< T, Types... > )
-    {
-      return *try_emplace_back( std::forward<Types>( values )... );
-    }
-
-    constexpr reference unchecked_push_back( const T& value )
-    {
-      return *try_push_back( std::forward<decltype(value)>( value ) );
-    }
-
-    constexpr reference unchecked_push_back( T&& value )
-    {
-      return *try_push_back( std::forward<decltype( value )>( value ) );
-    }
-
-    template <typename... Types>
-    constexpr iterator emplace( const_iterator position, Types&&... values )
-      requires( std::constructible_from< T, Types...> && std::movable<T> )
-    {
-      // inserts a new element directly before 'position' by adding it
-      // to the end and then rotating it into place
-      auto newElementPos = end();
-      emplace_back( std::forward<Types>( values )... );
-      std::rotate( position, newElementPos, end() );
-      return position;
-    }
-
-    constexpr iterator insert( const_iterator position, const T& value )
-      requires( std::constructible_from< T, const T& > && std::copyable<T> )
-    {
-      return insert( position, 1, value );
-    }
-
-    constexpr iterator insert( const_iterator position, T&& value )
-      requires( std::constructible_from< T, T&& > && std::movable<T> )
-    {
-      return emplace( position, ::std::move( value ) );
-    }
-
-    constexpr iterator insert( const_iterator position, size_type n, const T& value )
-      requires( std::constructible_from< T, const T& > && std::copyable<T> )
-    {
-      // inserts new elements directly before 'position' by adding them
-      // to the end and then rotating them into place
-      auto newElementsStartPos = end();
-      for ( size_type i = 0; i < n; ++i )
-        emplace_back( value );
-      std::rotate( position, newElementsStartPos, end() );
-      return position;
-    }
-
-    template <class InIt>
-    constexpr iterator insert( const_iterator position, InIt first, InIt last )
-      requires( std::constructible_from< T, std::iter_reference_t< InIt> > && std::movable<T> )
-    {
-      // inserts new elements directly before 'position' by adding them
-      // to the end and then rotating them into place
-      auto newElementsStartPos = end();
-      for ( ; first != last; ++first )
-        emplace_back( ::std::move( *first ) );
-      std::rotate( position, newElementsStartPos, end() );
-      return position;
-    }
-
-    template <typename Range>
-    constexpr iterator insert_range( const_iterator position, Range&& rng )
-    {
-    }
-
-    constexpr iterator insert( const_iterator position, std::initializer_list<T> iList )
-    {
-    }
-
     // Remove elements --------------------------------------------------------
 
-    constexpr iterator erase( const_iterator position )
+    constexpr void clear() noexcept
     {
+      destroy( begin(), end() );
+      size_ = 0;
+    }
+
+    constexpr iterator erase( const_iterator pos )
+    {
+      erase( pos, pos + 1 );
     }
 
     constexpr iterator erase( const_iterator first, const_iterator last )
     {
-    }
-
-    constexpr void clear() noexcept
-    {
+      assert( first <= last );
+      assert( first >= begin() && last <= end() );
+      if ( first == last )
+        return first;
+      // move [ last, end() ) to first
+      auto newLast = std::move( last, end(), first );
+      destroy( newLast, end() );
+      auto count = static_cast<size_type>( last - first );
+      size_ -= count;
+      return first; // the iterator following last removed element
     }
 
     constexpr void swap( inplace_vector& rhs )
       noexcept( Capacity == 0 || ( std::is_nothrow_swappable_v<T> &&
                                    std::is_nothrow_move_constructible_v<T> ) )
     {
+      auto tmp = std::move( rhs );
+      rhs      = std::move( *this );
+      *this    = std::move( tmp );
     }
 
   private:
+
+    template <class InIt>
+    void destroy( InIt first, InIt last ) noexcept( std::is_nothrow_destructible_v<T> )
+    {
+      if constexpr ( !std::is_trivial_v<T> )
+      {
+        std::for_each( first, last, []( const auto& elem )
+          {
+            std::destroy_at( std::addressof( elem ) );
+          } );
+      }
+    }
 
     // Synthesize a comparison operation even for objects that don't support <=> operator.
     // Used in operator<=> below
@@ -673,11 +664,20 @@ namespace PKIsensee
 
     friend constexpr bool operator==( const inplace_vector& lhs, const inplace_vector& rhs ) noexcept
     {
+      return ( lhs.size() == rhs.size() ) && std::ranges::equal( lhs, rhs );
     }
 
     friend constexpr auto operator<=>( const inplace_vector& lhs, const inplace_vector& rhs ) noexcept
     {
-      // Can't use std::array::operator<=> because must only compare a subset of elements
+      if ( lhs.size() < rhs.size() )
+        return -1;
+      if ( lhs.size() > rhs.size() )
+        return 1;
+
+      // Sizes are equivalent
+      return std::lexicographical_compare_three_way( std::begin( lhs ), std::end( lhs ),
+                                                     std::begin( rhs ), std::end( rhs ),
+                                                     SynthThreeWay{} );
     }
 
     friend constexpr void swap( inplace_vector& lhs, inplace_vector& rhs )
