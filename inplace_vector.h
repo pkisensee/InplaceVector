@@ -38,8 +38,9 @@ namespace // anonymous
 
   template <typename T>
   concept BooleanTestable = BooleanTestableImpl<T>
-    && requires( T && a ) {
-      { !static_cast<T&&>( a ) } -> BooleanTestableImpl;
+    && requires( T && a )
+  {
+    { !static_cast<T&&>( a ) } -> BooleanTestableImpl;
   };
 
 }; // namespace anonymous
@@ -47,8 +48,10 @@ namespace // anonymous
 namespace PKIsensee
 {
 
-// Contiguous vector of objects T on stack; maximum size Capacity
-template <typename T, size_t Capacity> 
+// Contiguous vector of objects T on stack; maximum size Capacity.
+// Performs no memory allocations.
+
+template < typename T, size_t Capacity > 
 class inplace_vector
 {
 public:
@@ -67,7 +70,7 @@ public:
 
   // Constructors -------------------------------------------------------------
 
-  constexpr inplace_vector() noexcept = default; // data() == nullptr and size() == 0
+  constexpr inplace_vector() noexcept = default; // size() == 0
 
   constexpr explicit inplace_vector( size_type count )
     requires( std::constructible_from< T, T&& > && std::default_initializable<T> )
@@ -141,7 +144,7 @@ public:
 
   constexpr inplace_vector& operator=( inplace_vector&& rhs ) // move assignment
     noexcept( Capacity == 0 || ( std::is_nothrow_move_assignable_v<T> &&
-                                  std::is_nothrow_move_constructible_v<T> ) )
+                                 std::is_nothrow_move_constructible_v<T> ) )
     requires( std::movable<T> )
   {
     clear();
@@ -243,18 +246,18 @@ public:
 
   constexpr const T* data() const noexcept
   {
-    // For efficiency, this implementation does not return nullptr if empty() is true.
-    // This is standard compliant. In order to detect potential errors, debug versions
-    // will assert if the container is empty.
+    // For efficiency, does not return nullptr if empty() is true.
+    // This is compliant behavior. To detect potential errors, debug versions
+    // assert if the container is empty.
     assert( size() > 0 );
     return getPtr();
   }
 
   constexpr T* data() noexcept
   {
-    // For efficiency, this implementation does not return nullptr if empty() is true.
-    // This is standard compliant. In order to detect potential errors, debug versions
-    // will assert if the container is empty.
+    // For efficiency, does not return nullptr if empty() is true.
+    // This is compliant behavior. To detect potential errors, debug versions
+    // assert if the container is empty.
     assert( size() > 0 );
     return getPtr();
   }
@@ -378,7 +381,7 @@ public:
   static constexpr void reserve( size_type newCapacity )
   {
     // inplace_vector already reserves Capacity elements, so reserve() 
-    // is technically unnecessary but still a required method
+    // is a technically unnecessary but still required method
     if ( newCapacity > Capacity )
       throw std::bad_alloc();
   }
@@ -582,7 +585,7 @@ public:
 
   constexpr void swap( inplace_vector& rhs )
     noexcept( Capacity == 0 || ( std::is_nothrow_swappable_v<T> &&
-                                  std::is_nothrow_move_constructible_v<T> ) )
+                                 std::is_nothrow_move_constructible_v<T> ) )
   {
     auto tmp = std::move( rhs );
     rhs      = std::move( *this );
@@ -596,6 +599,7 @@ private:
   {
     if constexpr ( !std::is_trivial_v<T> )
     {
+      // dtors only necessary for non-trivial objects
       std::for_each( first, last, []( const auto& elem )
         {
           std::destroy_at( std::addressof( elem ) );
@@ -644,15 +648,15 @@ public:
     if ( lhs.size() > rhs.size() )
       return 1;
 
-    // Sizes are equivalent
+    // Sizes equivalent
     return std::lexicographical_compare_three_way( std::begin( lhs ), std::end( lhs ),
-                                                    std::begin( rhs ), std::end( rhs ),
-                                                    SynthThreeWay{} );
+                                                   std::begin( rhs ), std::end( rhs ),
+                                                   SynthThreeWay{} );
   }
 
   friend constexpr void swap( inplace_vector& lhs, inplace_vector& rhs )
     noexcept( Capacity == 0 || ( std::is_nothrow_swappable_v<T> &&
-                                  std::is_nothrow_move_constructible_v<T> ) )
+                                 std::is_nothrow_move_constructible_v<T> ) )
   {
     lhs.swap( rhs );
   }
@@ -662,13 +666,13 @@ private:
   constexpr T* getPtr( size_t i = 0 ) noexcept
   {
     assert( i < Capacity );
-    return reinterpret_cast<T*>( data_ ) + i;
+    return reinterpret_cast< T* >( data_ ) + i; // safe on aligned std::byte array of T
   }
 
   constexpr const T* getPtr( size_t i = 0 ) const noexcept
   {
     assert( i < Capacity );
-    return reinterpret_cast<T*>( data_ ) + i;
+    return reinterpret_cast< T* >( data_ ) + i; // safe on aligned std::byte array of T
   }
 
   constexpr T& getRef( size_t i = 0 ) noexcept
@@ -683,15 +687,24 @@ private:
 
 private:
 
-  // Properly aligned bytes with sufficient size to store all elements T on the stack.
-  // Not default constructed for max speed; just a raw uninitialized array of bytes.
-  alignas( T ) std::byte data_[ sizeof( T ) * Capacity ];
+  // Aligned bytes with sufficient size to store Capacity elements T on the stack.
+  // Not default constructed for efficiency; just a raw uninitialized memory.
+  // construct_at() guarantees proper initialization.
+  // 
+  // For simplicity, this implementation doesn't specialize to have 
+  // zero storage when Capacity is zero.
 
-  // size_ indicates where the *next* element will be emplaced or pushed_back
-  // end()        -> return data_ + size_;
-  // push_back(x) -> construct_at(end(), x); ++size_;
-  // empty()      -> return size_ == 0;
+  alignas( T ) std::byte data_[ sizeof( T ) * Capacity ];
   size_t size_ = 0;
+
+  // size_ indicates where the *next* element will be emplaced:
+  // end()      -> return begin() + size_;
+  // emplace(x) -> construct_at( end(), x ); ++size_;
+  // empty()    -> return size_ == 0;
+  //
+  // For simplicity, this implementation doesn't use smaller types than size_t
+  // for size_ even when Capacity is small (e.g. if Capacity was 100, uint8_t 
+  // would be sufficient).
 
 }; // class inplace_vector
   
