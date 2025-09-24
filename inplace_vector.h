@@ -577,20 +577,40 @@ namespace PKIsensee
     }
 
     constexpr iterator insert( const_iterator position, const T& value )
+      requires( std::constructible_from< T, const T& > && std::copyable<T> )
     {
+      return insert( position, 1, value );
     }
 
     constexpr iterator insert( const_iterator position, T&& value )
+      requires( std::constructible_from< T, T&& > && std::movable<T> )
     {
+      return emplace( position, ::std::move( value ) );
     }
 
     constexpr iterator insert( const_iterator position, size_type n, const T& value )
+      requires( std::constructible_from< T, const T& > && std::copyable<T> )
     {
+      // inserts new elements directly before 'position' by adding them
+      // to the end and then rotating them into place
+      auto newElementsStartPos = end();
+      for ( size_type i = 0; i < n; ++i )
+        emplace_back( value );
+      std::rotate( position, newElementsStartPos, end() );
+      return position;
     }
 
     template <class InIt>
     constexpr iterator insert( const_iterator position, InIt first, InIt last )
+      requires( std::constructible_from< T, std::iter_reference_t< InIt> > && std::movable<T> )
     {
+      // inserts new elements directly before 'position' by adding them
+      // to the end and then rotating them into place
+      auto newElementsStartPos = end();
+      for ( ; first != last; ++first )
+        emplace_back( ::std::move( *first ) );
+      std::rotate( position, newElementsStartPos, end() );
+      return position;
     }
 
     template <typename Range>
