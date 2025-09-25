@@ -30,6 +30,9 @@
 #include <stdexcept>
 #include <vector>
 
+#pragma warning(push)
+#pragma warning(disable: 26495) // "data_ is uninitialized", by design
+
 namespace // anonymous
 {
   // Requirements for object comparisons; see SynthThreeWay below
@@ -76,7 +79,7 @@ public:
     requires( std::constructible_from< T, T&& > && std::default_initializable<T> )
   {
     // default initialize first count elements
-    assert( count < capacity() );
+    assert( count <= capacity() );
     for ( size_type i = 0; i < count; ++i )
       emplace_back( T{} );
   }
@@ -115,8 +118,7 @@ public:
   {
     for ( auto&& e : other )
       emplace_back( std::move( e ) );
-    other.size_ = 0;
-    // TODO validate that "other" elements have been destroyed
+    other.size_ = 0; // put moved-from object in valid but empty state
   }
 
   constexpr inplace_vector( std::initializer_list<T> iList )
@@ -152,6 +154,7 @@ public:
     clear();
     for ( auto&& e : rhs )
       emplace_back( std::move( e ) );
+    rhs.size_ = 0; // put moved-from object in valid but empty state
     return *this;
   }
 
@@ -479,10 +482,10 @@ public:
   constexpr reference emplace_back( Types&&... values )
     requires( std::constructible_from< T, Types... > )
   {
-    auto newItemPtr = try_emplace_back( std::forward<Types>( values )... );
-    if ( newItemPtr == nullptr )
+    auto newItem = try_emplace_back( std::forward<Types>( values )... );
+    if ( newItem == nullptr )
       throw std::bad_alloc();
-    return *newItemPtr;
+    return back();
   }
 
   template <typename... Types>
@@ -730,5 +733,7 @@ private:
 }; // class inplace_vector
   
 } // namespace PKIsensee
+
+#pragma warning(pop)
 
 ///////////////////////////////////////////////////////////////////////////////
