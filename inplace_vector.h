@@ -470,12 +470,18 @@ public:
     requires( std::constructible_from< T, Types... > && std::movable<T> )
   {
     assert( pos >= begin() && pos <= end() );
+
     // Inserts a new element before pos by adding it to the end and 
     // then rotating it into place
     auto newElementPos = end();
     emplace_back( std::forward<Types>( values )... );
-    std::rotate( pos, newElementPos, end() );
-    return pos;
+
+    // Iterators must be consistent (all non-const) in rotate call;
+    // safe cast because neither the pointer itself nor what it points 
+    // to is changing TODO common function
+    auto start = const_cast<iterator>( pos );
+    std::rotate( start, newElementPos, end() );
+    return start;
   }
 
   template <typename... Types>
