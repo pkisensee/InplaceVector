@@ -722,7 +722,8 @@ private:
   // construct_at() guarantees proper initialization.
   // 
   // For simplicity, this implementation doesn't specialize to have 
-  // zero storage when Capacity is zero.
+  // zero storage when Capacity is zero. Somes compilers will give a warning/error
+  // if Capacity is zero.
 
   alignas( T ) std::byte data_[ sizeof( T ) * Capacity ];
   size_t size_ = 0;
