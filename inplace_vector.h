@@ -397,12 +397,12 @@ public:
   constexpr iterator insert( const_iterator pos, size_type count, const T& value )
     requires( std::constructible_from< T, const T& > && std::copyable<T> )
   {
+    // Function inserts new elements before pos
     assert( pos >= begin() && pos <= end() );
     if ( ( size() + count ) > capacity() )
       throw std::bad_alloc();
 
-    // Inserts new elements before pos by adding them to the end and 
-    // then rotating them into place
+    // Add elements to the end and then rotate them into place
     auto newElementsStartPos = end();
     for ( size_type i = 0; i < count; ++i )
       unchecked_emplace_back( value );
@@ -425,8 +425,7 @@ public:
     if ( ( size() + count ) > capacity() )
       throw std::bad_alloc();
 
-    // Inserts new elements before pos by adding them to the end and 
-    // then rotating them into place
+    // Add elements to the end and then rotate them into place
     auto newElementsStartPos = end();
     for ( ; first != last; ++first )
       unchecked_emplace_back( ::std::move( *first ) );
@@ -458,10 +457,10 @@ public:
   constexpr iterator emplace( const_iterator pos, Types&&... values )
     requires( std::constructible_from< T, Types... > && std::movable<T> )
   {
+    // Function inserts new elements before pos
     assert( pos >= begin() && pos <= end() );
 
-    // Inserts a new element before pos by adding it to the end and 
-    // then rotating it into place
+    // Add elements to the end and then rotate them into place
     auto newElementPos = end();
     emplace_back( std::forward<Types>( values )... );
 
@@ -626,7 +625,7 @@ private:
       return;
     }
 
-    // Grow vector: append elements created by factory
+    // Grow vector: append elements from factory
     while ( size() != count )
       emplace_back( getValue() );
   }
@@ -648,7 +647,7 @@ private:
 
   // Synthesize a comparison operation even for objects that don't support <=> operator.
   // Used in operator<=> below
-  struct SynthThreeWay
+  struct synthThreeWay
   {
     template <typename U, typename V>
     constexpr auto operator()( const U& lhs, const V& rhs ) const noexcept
@@ -692,7 +691,7 @@ public:
     // Sizes equivalent
     return std::lexicographical_compare_three_way( std::begin( lhs ), std::end( lhs ),
                                                    std::begin( rhs ), std::end( rhs ),
-                                                   SynthThreeWay{} );
+                                                   synthThreeWay{} );
   }
 
   friend constexpr void swap( inplace_vector& lhs, inplace_vector& rhs )
@@ -729,7 +728,7 @@ private:
 private:
 
   // Aligned bytes with sufficient size to store Capacity elements T on the stack.
-  // Not default constructed for efficiency; just a raw uninitialized memory.
+  // Not default constructed for efficiency; just raw uninitialized memory.
   // construct_at() guarantees proper initialization.
   // 
   // For simplicity, this implementation doesn't specialize to have 
@@ -739,10 +738,10 @@ private:
   alignas( T ) std::byte data_[ sizeof( T ) * Capacity ];
   size_t size_ = 0;
 
-  // size_ indicates where the *next* element will be emplaced:
-  // end()      -> return begin() + size_;
-  // emplace(x) -> construct_at( end(), x ); ++size_;
-  // empty()    -> return size_ == 0;
+  // size_ indicates where the *next* element will be push/emplace_back()'ed:
+  // end()           -> begin() + size_;
+  // emplace_back(x) -> construct_at( end(), x ); ++size_;
+  // empty()         -> size_ == 0;
   //
   // For simplicity, this implementation doesn't use smaller types than size_t
   // for size_ even when Capacity is small (e.g. if Capacity was 100, uint8_t 
