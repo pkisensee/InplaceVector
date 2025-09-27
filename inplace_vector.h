@@ -176,7 +176,7 @@ public:
     requires( std::constructible_from< T, std::ranges::range_reference_t< std::initializer_list< T > > > &&
               std::movable<T> )
   {
-    assign( iList ); // TODO test
+    assign( iList );
     return *this;
   }
 
@@ -533,7 +533,7 @@ public:
   constexpr pointer try_push_back( const T& value )
     requires( std::constructible_from< T, const T& > )
   {
-    return try_emplace_back( value ); // TODO test
+    return try_emplace_back( value );
   }
 
   constexpr pointer try_push_back( T&& value )
@@ -544,7 +544,7 @@ public:
 
   constexpr reference unchecked_push_back( const T& value )
   {
-    assert( size() < capacity() ); // TODO test
+    assert( size() < capacity() );
     return *try_push_back( std::forward< decltype( value ) >( value ) );
   }
 
