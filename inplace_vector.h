@@ -46,6 +46,20 @@ namespace // anonymous
     { !static_cast<T&&>( a ) } -> BooleanTestableImpl;
   };
 
+  // Helper for standalone erase() and erase_if()
+  template < typename DifferenceType >
+  size_t asSizeType( DifferenceType d )
+  {
+    assert( d >= 0 && "difference can't be negative" );
+    if constexpr ( sizeof( DifferenceType ) > sizeof( size_t ) )
+    {
+      assert( static_cast<std::make_unsigned_t< DifferenceType >>( d ) <=
+              std::numeric_limits<size_t>::max() &&
+              "difference exceeds size_t range" );
+    }
+    return static_cast<size_t>( d );
+  }
+
 }; // namespace anonymous
 
 namespace PKIsensee
@@ -162,7 +176,7 @@ public:
     requires( std::constructible_from< T, std::ranges::range_reference_t< std::initializer_list< T > > > &&
               std::movable<T> )
   {
-    assign( iList );
+    assign( iList ); // TODO test
     return *this;
   }
 
@@ -519,7 +533,7 @@ public:
   constexpr pointer try_push_back( const T& value )
     requires( std::constructible_from< T, const T& > )
   {
-    return try_emplace_back( value );
+    return try_emplace_back( value ); // TODO test
   }
 
   constexpr pointer try_push_back( T&& value )
@@ -530,7 +544,7 @@ public:
 
   constexpr reference unchecked_push_back( const T& value )
   {
-    assert( size() < capacity() );
+    assert( size() < capacity() ); // TODO test
     return *try_push_back( std::forward< decltype( value ) >( value ) );
   }
 
@@ -760,7 +774,31 @@ private:
   // would be sufficient).
 
 }; // class inplace_vector
-  
+
+// Non-member functions
+
+template < typename T, size_t Capacity, class U = T >
+constexpr typename inplace_vector<T, Capacity>::size_type erase( 
+  inplace_vector<T, Capacity>& vec, const U& value )
+{
+  // Erases all elements that compare equal to value
+  auto it = std::remove( vec.begin(), vec.end(), value );
+  auto countRemoved = std::distance( it, vec.end() );
+  vec.erase( it, vec.end() );
+  return asSizeType( countRemoved );
+}
+
+template < typename T, size_t Capacity, class Pred >
+constexpr typename inplace_vector<T, Capacity>::size_type erase_if(
+  inplace_vector<T, Capacity>& vec, Pred pred )
+{
+  // Erases all elements that satisfy pred
+  auto it = std::remove_if( vec.begin(), vec.end(), pred );
+  auto countRemoved = std::distance( it, vec.end() );
+  vec.erase( it, vec.end() );
+  return asSizeType( countRemoved );
+}
+
 } // namespace PKIsensee
 
 #pragma warning(pop)
