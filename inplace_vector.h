@@ -551,8 +551,10 @@ public:
   constexpr void append_range( Range&& rng )
     requires( std::constructible_from< T, std::ranges::range_reference_t< Range > > )
   {
+    if ( ( size() + std::ranges::size(rng) ) > capacity() )
+      throw std::bad_alloc();
     for ( auto&& e : rng )
-      emplace_back( std::forward< decltype( e ) >( e ) );
+      unchecked_emplace_back( std::forward< decltype( e ) >( e ) );
   }
 
   template <typename Range>
