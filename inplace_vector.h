@@ -20,7 +20,6 @@
 
 #pragma once
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <concepts>
 #include <cstddef>
@@ -28,7 +27,6 @@
 #include <new>
 #include <ranges>
 #include <stdexcept>
-#include <vector>
 
 #pragma warning(push)
 #pragma warning(disable: 26495) // "data_ is uninitialized", by design
@@ -587,7 +585,6 @@ public:
     requires( std::movable<T> )
   {
     // Make iterators consistent (all non-const) for return value and std::move algorithm.
-    // Safe because neither the pointers nor what they point to are changing.
     auto first = const_cast<iterator>( firstIt );
     auto last = const_cast<iterator>( lastIt );
 
