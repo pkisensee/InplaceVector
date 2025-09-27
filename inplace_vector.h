@@ -216,51 +216,51 @@ public:
   constexpr const_reference operator[]( size_type i ) const
   {
     assert( i < size_ );
-    return getRef( i ); // TODO reference()
+    return ref( i );
   }
 
   constexpr reference operator[]( size_type i )
   {
     assert( i < size() );
-    return getRef( i );
+    return ref( i );
   }
 
   constexpr const_reference at( size_type i ) const
   {
     if ( i >= size() )
       throw std::out_of_range( "inplace_vector::at" );
-    return getRef( i );
+    return ref( i );
   }
 
   constexpr reference at( size_type i )
   {
     if ( i >= size() )
       throw std::out_of_range( "inplace_vector::at" );
-    return getRef( i );
+    return ref( i );
   }
 
   constexpr const_reference front() const
   {
     assert( size() > 0 );
-    return getRef();
+    return ref();
   }
 
   constexpr reference front()
   {
     assert( size() > 0 );
-    return getRef();
+    return ref();
   }
 
   constexpr const_reference back() const
   {
     assert( size() > 0 );
-    return getRef( size() - 1 );
+    return ref( size() - 1 );
   }
 
   constexpr reference back()
   {
     assert( size() > 0 );
-    return getRef( size() - 1 );
+    return ref( size() - 1 );
   }
 
   constexpr const T* data() const noexcept
@@ -269,7 +269,7 @@ public:
     // This is compliant behavior. To detect potential errors, debug versions
     // assert if the container is empty.
     assert( size() > 0 );
-    return getPtr();
+    return ptr();
   }
 
   constexpr T* data() noexcept
@@ -278,24 +278,24 @@ public:
     // This is compliant behavior. To detect potential errors, debug versions
     // assert if the container is empty.
     assert( size() > 0 );
-    return getPtr();
+    return ptr();
   }
 
   // Iterators ----------------------------------------------------------------
 
   constexpr iterator begin() noexcept
   {
-    return getPtr();
+    return ptr();
   }
 
   constexpr const_iterator begin() const noexcept
   {
-    return getPtr();
+    return ptr();
   }
 
   constexpr const_iterator cbegin() const noexcept
   {
-    return getPtr();
+    return ptr();
   }
 
   constexpr iterator end() noexcept
@@ -696,26 +696,26 @@ private:
     }
   };
 
-  constexpr pointer getPtr( size_t i = 0 ) noexcept
+  constexpr pointer ptr( size_t i = 0 ) noexcept
   {
     assert( i < Capacity );
     return reinterpret_cast<pointer>( data_ ) + i; // safe on aligned std::byte array of T
   }
 
-  constexpr const_pointer getPtr( size_t i = 0 ) const noexcept
+  constexpr const_pointer ptr( size_t i = 0 ) const noexcept
   {
     assert( i < Capacity );
     return reinterpret_cast<const_pointer>( data_ ) + i; // safe on aligned std::byte array of T
   }
 
-  constexpr reference getRef( size_t i = 0 ) noexcept
+  constexpr reference ref( size_t i = 0 ) noexcept
   {
-    return *getPtr( i );
+    return *ptr( i );
   }
 
-  constexpr const_reference getRef( size_t i = 0 ) const noexcept
+  constexpr const_reference ref( size_t i = 0 ) const noexcept
   {
-    return *getPtr( i );
+    return *ptr( i );
   }
 
 public:
