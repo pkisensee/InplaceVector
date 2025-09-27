@@ -562,12 +562,14 @@ public:
     requires( std::constructible_from< T, std::ranges::range_reference_t<Range>> )
   {
     // Returns an iterator pointing to the first element of rng that was not inserted,
-    // or rng.end() if all elements were inserted
+    // or rng.end() if all elements were inserted. Does not provide the strong
+    // exception guarantee; elements that were already inserted prior to a thrown
+    // exception remain inserted.
     for( auto it = std::begin( rng ); it != std::end( rng ); ++it )
     {
       if ( size() == capacity() )
         return it;
-      emplace_back( std::forward<decltype( *it )>( *it ) );
+      unchecked_emplace_back( std::forward<decltype( *it )>( *it ) );
     }
     return std::ranges::end( rng );
   }
