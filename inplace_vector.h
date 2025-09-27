@@ -584,21 +584,29 @@ public:
 
   constexpr iterator erase( const_iterator pos )
   {
-    erase( pos, pos + 1 );
+    return erase( pos, pos + 1 );
   }
 
-  constexpr iterator erase( const_iterator first, const_iterator last )
+  constexpr iterator erase( const_iterator firstIt, const_iterator lastIt )
+    requires( std::movable<T> )
   {
+    // Make iterators consistent (all non-const) for return value and std::move algorithm.
+    // Safe because neither the pointers nor what they point to are changing.
+    auto first = const_cast<iterator>( firstIt );
+    auto last = const_cast<iterator>( lastIt );
+
     assert( first <= last );
     assert( first >= begin() && last <= end() );
     if ( first == last )
       return first;
-    // move [ last, end() ) to first
+
+    // move [last, end()) to first
     auto newLast = std::move( last, end(), first );
     destroy( newLast, end() );
+
     auto count = static_cast<size_type>( last - first );
     size_ -= count;
-    return first; // the iterator following last removed element
+    return first; // iterator following last removed element
   }
 
   constexpr void swap( inplace_vector& rhs )
