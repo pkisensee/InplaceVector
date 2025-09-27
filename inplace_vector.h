@@ -353,34 +353,18 @@ public:
 
   // Resizing -----------------------------------------------------------------
 
+public:
+
   constexpr void resize( size_type count )
     requires( std::constructible_from< T, const T& > && std::default_initializable<T> )
   {
-    resize( count, T{} );
+    resizeImpl( count, []() { return T{}; } );
   }
 
   constexpr void resize( size_type count, const T& value )
     requires( std::constructible_from< T, const T& > )
   {
-    if ( count == size() )
-      return;
-
-    if ( count > capacity() )
-      throw std::bad_alloc();
-
-    // Shrink vector: erase last elements
-    if ( count < size() )
-    {
-      destroy( begin() + count, end() );
-      size_ = count;
-    }
-
-    // Grow vector: append default-inserted elements
-    else
-    {
-      while ( size() != count )
-        emplace_back( T{} );
-    }
+    resizeImpl( count, [&value]() -> const T& { return value; } );
   }
 
   static constexpr void reserve( size_type newCapacity )
@@ -619,6 +603,28 @@ public:
   }
 
 private:
+
+  template < typename ValueFactory >
+  constexpr void resizeImpl( size_type count, ValueFactory&& getValue )
+  {
+    if ( count == size() )
+      return;
+
+    if ( count > capacity() )
+      throw std::bad_alloc();
+
+    // Shrink vector: erase last elements
+    if ( count < size() )
+    {
+      destroy( begin() + count, end() );
+      size_ = count;
+      return;
+    }
+
+    // Grow vector: append elements created by factory
+    while ( size() != count )
+      emplace_back( getValue() );
+  }
 
   template <class InIt>
   void destroy( InIt first, InIt last ) noexcept( std::is_nothrow_destructible_v<T> )
