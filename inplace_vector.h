@@ -417,16 +417,10 @@ public:
       throw std::bad_alloc();
 
     // Add elements to the end and then rotate them into place
-    auto newElementsStartPos = end();
+    auto newElementsPos = end();
     for ( size_type i = 0; i < count; ++i )
       unchecked_emplace_back( value );
-
-    // Iterators must be consistent (all non-const) in rotate call;
-    // safe cast because neither the pointer itself nor what it points 
-    // to is changing
-    auto first = const_cast< iterator >( pos ); 
-    std::rotate( first, newElementsStartPos, end() );
-    return first;
+    return rotate( pos, newElementsPos, end() );
   }
 
   template <class InIt>
@@ -440,16 +434,10 @@ public:
       throw std::bad_alloc();
 
     // Add elements to the end and then rotate them into place
-    auto newElementsStartPos = end();
+    auto newElementsPos = end();
     for ( ; first != last; ++first )
       unchecked_emplace_back( ::std::move( *first ) );
-
-    // Iterators must be consistent (all non-const) in rotate call;
-    // safe cast because neither the pointer itself nor what it points 
-    // to is changing TODO common function
-    auto start = const_cast< iterator >( pos );
-    std::rotate( start, newElementsStartPos, end() );
-    return start;
+    return rotate( pos, newElementsPos, end() );
   }
 
   constexpr iterator insert( const_iterator pos, std::initializer_list<T> iList )
@@ -474,16 +462,10 @@ public:
     // Function inserts new elements before pos
     assert( pos >= begin() && pos <= end() );
 
-    // Add elements to the end and then rotate them into place
+    // Add element to the end and then rotate it into place
     auto newElementPos = end();
     emplace_back( std::forward<Types>( values )... );
-
-    // Iterators must be consistent (all non-const) in rotate call;
-    // safe cast because neither the pointer itself nor what it points 
-    // to is changing TODO common function
-    auto start = const_cast<iterator>( pos );
-    std::rotate( start, newElementPos, end() );
-    return start;
+    return rotate( pos, newElementPos, end() );
   }
 
   template <typename... Types>
@@ -716,6 +698,14 @@ private:
   constexpr const_reference ref( size_t i = 0 ) const noexcept
   {
     return *ptr( i );
+  }
+
+  iterator rotate( const_iterator cfirst, iterator middle, iterator last )
+  {
+    // Iterators must be consistent (all non-const) in std::rotate
+    auto first = const_cast<iterator>( cfirst );
+    std::rotate( first, middle, last );
+    return first;
   }
 
 public:
