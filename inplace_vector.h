@@ -398,12 +398,14 @@ public:
     requires( std::constructible_from< T, const T& > && std::copyable<T> )
   {
     assert( pos >= begin() && pos <= end() );
+    if ( ( size() + count ) > capacity() )
+      throw std::bad_alloc();
 
     // Inserts new elements before pos by adding them to the end and 
     // then rotating them into place
     auto newElementsStartPos = end();
     for ( size_type i = 0; i < count; ++i )
-      emplace_back( value );
+      unchecked_emplace_back( value );
 
     // Iterators must be consistent (all non-const) in rotate call;
     // safe cast because neither the pointer itself nor what it points 
@@ -419,12 +421,15 @@ public:
   {
     assert( pos >= begin() && pos <= end() );
     assert( first <= last );
+    auto count = last - first;
+    if ( ( size() + count ) > capacity() )
+      throw std::bad_alloc();
 
     // Inserts new elements before pos by adding them to the end and 
     // then rotating them into place
     auto newElementsStartPos = end();
     for ( ; first != last; ++first )
-      emplace_back( ::std::move( *first ) );
+      unchecked_emplace_back( ::std::move( *first ) );
 
     // Iterators must be consistent (all non-const) in rotate call;
     // safe cast because neither the pointer itself nor what it points 
