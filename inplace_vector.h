@@ -696,6 +696,28 @@ private:
     }
   };
 
+  constexpr pointer getPtr( size_t i = 0 ) noexcept
+  {
+    assert( i < Capacity );
+    return reinterpret_cast<pointer>( data_ ) + i; // safe on aligned std::byte array of T
+  }
+
+  constexpr const_pointer getPtr( size_t i = 0 ) const noexcept
+  {
+    assert( i < Capacity );
+    return reinterpret_cast<const_pointer>( data_ ) + i; // safe on aligned std::byte array of T
+  }
+
+  constexpr reference getRef( size_t i = 0 ) noexcept
+  {
+    return *getPtr( i );
+  }
+
+  constexpr const_reference getRef( size_t i = 0 ) const noexcept
+  {
+    return *getPtr( i );
+  }
+
 public:
 
   // Non-member functions -----------------------------------------------------
@@ -725,30 +747,6 @@ public:
                                  std::is_nothrow_move_constructible_v<T> ) )
   {
     lhs.swap( rhs );
-  }
-
-private:
-
-  constexpr pointer getPtr( size_t i = 0 ) noexcept
-  {
-    assert( i < Capacity );
-    return reinterpret_cast< pointer >( data_ ) + i; // safe on aligned std::byte array of T
-  }
-
-  constexpr const_pointer getPtr( size_t i = 0 ) const noexcept
-  {
-    assert( i < Capacity );
-    return reinterpret_cast< const_pointer >( data_ ) + i; // safe on aligned std::byte array of T
-  }
-
-  constexpr reference getRef( size_t i = 0 ) noexcept
-  {
-    return *getPtr( i );
-  }
-
-  constexpr const_reference getRef( size_t i = 0 ) const noexcept
-  {
-    return *getPtr( i );
   }
 
 private:
