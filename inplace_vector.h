@@ -552,7 +552,7 @@ public:
   }
 
   template <typename Range>
-  constexpr std::ranges::borrowed_iterator_t<Range> try_append_range( Range&& rng )
+  constexpr auto try_append_range( Range&& rng ) -> std::ranges::borrowed_iterator_t<Range>
     requires( std::constructible_from< T, std::ranges::range_reference_t<Range>> )
   {
     // Returns an iterator pointing to the first element of rng that was not inserted,
@@ -763,8 +763,8 @@ private:
 // Non-member functions
 
 template < typename T, size_t Capacity, class U = T >
-constexpr typename inplace_vector<T, Capacity>::size_type erase( 
-  inplace_vector<T, Capacity>& vec, const U& value )
+constexpr auto erase( inplace_vector<T, Capacity>& vec, const U& value ) -> 
+  inplace_vector<T, Capacity>::size_type
 {
   // Erases all elements that compare equal to value
   auto it = std::remove( vec.begin(), vec.end(), value );
@@ -774,8 +774,8 @@ constexpr typename inplace_vector<T, Capacity>::size_type erase(
 }
 
 template < typename T, size_t Capacity, class Pred >
-constexpr typename inplace_vector<T, Capacity>::size_type erase_if(
-  inplace_vector<T, Capacity>& vec, Pred pred )
+constexpr auto erase_if( inplace_vector<T, Capacity>& vec, Pred pred ) ->
+  inplace_vector<T, Capacity>::size_type
 {
   // Erases all elements that satisfy pred
   auto it = std::remove_if( vec.begin(), vec.end(), pred );
