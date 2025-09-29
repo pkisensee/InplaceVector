@@ -34,17 +34,6 @@
 namespace PKIsensee
 {
 
-// Requirements for object comparisons; see SynthThreeWay below
-template <typename T>
-concept InplaceVectorBooleanTestableImpl = std::convertible_to<T, bool>;
-
-template <typename T>
-concept InplaceVectorBooleanTestable = InplaceVectorBooleanTestableImpl<T>
-  && requires( T&& t )
-{
-  { !std::forward<T>( t ) } -> InplaceVectorBooleanTestableImpl;
-};
-
 namespace detail
 {
   // Helper for standalone erase() and erase_if()
@@ -660,8 +649,8 @@ private:
     constexpr auto operator()( const U& lhs, const V& rhs ) const noexcept
       requires requires
     {
-      { lhs < rhs } -> InplaceVectorBooleanTestable;
-      { lhs > rhs } -> InplaceVectorBooleanTestable;
+      { lhs < rhs } -> std::convertible_to<bool>;
+      { lhs > rhs } -> std::convertible_to<bool>;
     }
     {
       if constexpr ( std::three_way_comparable_with<U, V> )
