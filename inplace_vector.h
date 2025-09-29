@@ -31,19 +31,22 @@
 #pragma warning(push)
 #pragma warning(disable: 26495) // "data_ is uninitialized", by design
 
-namespace // anonymous
+namespace PKIsensee
 {
-  // Requirements for object comparisons; see SynthThreeWay below
-  template <typename T>
-  concept BooleanTestableImpl = std::convertible_to<T, bool>;
 
-  template <typename T>
-  concept BooleanTestable = BooleanTestableImpl<T>
-    && requires( T && a )
-  {
-    { !static_cast<T&&>( a ) } -> BooleanTestableImpl;
-  };
+// Requirements for object comparisons; see SynthThreeWay below
+template <typename T>
+concept BooleanTestableImpl = std::convertible_to<T, bool>;
 
+template <typename T>
+concept BooleanTestable = BooleanTestableImpl<T>
+  && requires( T && a )
+{
+  { !static_cast<T&&>( a ) } -> BooleanTestableImpl;
+};
+
+namespace detail
+{
   // Helper for standalone erase() and erase_if()
   template < typename DifferenceType >
   size_t asSizeType( DifferenceType d )
@@ -52,16 +55,14 @@ namespace // anonymous
     if constexpr ( sizeof( DifferenceType ) > sizeof( size_t ) )
     {
       assert( static_cast<std::make_unsigned_t< DifferenceType >>( d ) <=
-              std::numeric_limits<size_t>::max() &&
-              "difference exceeds size_t range" );
+        std::numeric_limits<size_t>::max() &&
+        "difference exceeds size_t range" );
     }
     return static_cast<size_t>( d );
   }
 
-}; // namespace anonymous
+  }; // namespace detail
 
-namespace PKIsensee
-{
 
 // Contiguous vector of objects T on stack; maximum size Capacity.
 // Performs no memory allocations.
@@ -770,7 +771,7 @@ constexpr auto erase( inplace_vector<T, Capacity>& vec, const U& value ) ->
   auto it = std::remove( vec.begin(), vec.end(), value );
   auto countRemoved = std::distance( it, vec.end() );
   vec.erase( it, vec.end() );
-  return asSizeType( countRemoved );
+  return detail::asSizeType( countRemoved );
 }
 
 template < typename T, size_t Capacity, class Pred >
@@ -781,7 +782,7 @@ constexpr auto erase_if( inplace_vector<T, Capacity>& vec, Pred pred ) ->
   auto it = std::remove_if( vec.begin(), vec.end(), pred );
   auto countRemoved = std::distance( it, vec.end() );
   vec.erase( it, vec.end() );
-  return asSizeType( countRemoved );
+  return detail::asSizeType( countRemoved );
 }
 
 } // namespace PKIsensee
