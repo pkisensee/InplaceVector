@@ -406,7 +406,7 @@ public:
       throw std::bad_alloc();
 
     // Add elements to the end and then rotate them into place
-    auto newElementsPos = end();
+    const auto newElementsPos = end();
     for ( size_type i = 0; i < count; ++i )
       unchecked_emplace_back( value );
     return rotate( pos, newElementsPos, end() );
@@ -418,7 +418,7 @@ public:
   {
     assert( pos >= begin() && pos <= end() );
     assert( first <= last );
-    auto count = last - first;
+    const auto count = last - first;
     if ( ( size() + count ) > capacity() )
       throw std::bad_alloc();
 
@@ -452,7 +452,7 @@ public:
     assert( pos >= begin() && pos <= end() );
 
     // Add element to the end and then rotate it into place
-    auto newElementPos = end();
+    const auto newElementPos = end();
     emplace_back( std::forward<Types>( values )... );
     return rotate( pos, newElementPos, end() );
   }
@@ -461,7 +461,7 @@ public:
   constexpr reference emplace_back( Types&&... values )
     requires( std::constructible_from< T, Types... > )
   {
-    auto newItem = try_emplace_back( std::forward<Types>( values )... );
+    const auto newItem = try_emplace_back( std::forward<Types>( values )... );
     if ( newItem == nullptr )
       throw std::bad_alloc();
     return back();
@@ -576,8 +576,8 @@ public:
     requires( std::movable<T> )
   {
     // Make iterators consistent (all non-const) for return value and std::move algorithm.
-    auto first = const_cast<iterator>( firstIt );
-    auto last = const_cast<iterator>( lastIt );
+    const auto first = const_cast<iterator>( firstIt );
+    const auto last = const_cast<iterator>( lastIt );
 
     assert( first <= last );
     assert( first >= begin() && last <= end() );
@@ -585,10 +585,10 @@ public:
       return first;
 
     // move [last, end()) to first
-    auto newLast = std::move( last, end(), first );
+    const auto newLast = std::move( last, end(), first );
     destroy( newLast, end() );
 
-    auto count = static_cast<size_type>( last - first );
+    const auto count = static_cast<size_type>( last - first );
     size_ -= count;
     return first; // iterator following last removed element
   }
@@ -691,7 +691,7 @@ private:
   iterator rotate( const_iterator cfirst, iterator middle, iterator last )
   {
     // Iterators must be consistent (all non-const) in std::rotate
-    auto first = const_cast<iterator>( cfirst );
+    const auto first = const_cast<iterator>( cfirst );
     std::rotate( first, middle, last );
     return first;
   }
@@ -758,8 +758,8 @@ constexpr auto erase( inplace_vector<T, Capacity>& vec, const U& value ) ->
   inplace_vector<T, Capacity>::size_type
 {
   // Erases all elements that compare equal to value
-  auto it = std::remove( vec.begin(), vec.end(), value );
-  auto countRemoved = std::distance( it, vec.end() );
+  const auto it = std::remove( vec.begin(), vec.end(), value );
+  const auto countRemoved = std::distance( it, vec.end() );
   vec.erase( it, vec.end() );
   return detail::asSizeType( countRemoved );
 }
@@ -769,8 +769,8 @@ constexpr auto erase_if( inplace_vector<T, Capacity>& vec, Pred pred ) ->
   inplace_vector<T, Capacity>::size_type
 {
   // Erases all elements that satisfy pred
-  auto it = std::remove_if( vec.begin(), vec.end(), pred );
-  auto countRemoved = std::distance( it, vec.end() );
+  const auto it = std::remove_if( vec.begin(), vec.end(), pred );
+  const auto countRemoved = std::distance( it, vec.end() );
   vec.erase( it, vec.end() );
   return detail::asSizeType( countRemoved );
 }
