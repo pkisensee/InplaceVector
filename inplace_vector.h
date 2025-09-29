@@ -709,12 +709,6 @@ public:
 
   friend constexpr auto operator<=>( const inplace_vector& lhs, const inplace_vector& rhs ) noexcept
   {
-    if ( lhs.size() < rhs.size() )
-      return std::strong_ordering::less;
-    if ( lhs.size() > rhs.size() )
-      return std::strong_ordering::greater;
-
-    // Sizes equivalent
     return std::lexicographical_compare_three_way( std::begin( lhs ), std::end( lhs ),
                                                    std::begin( rhs ), std::end( rhs ),
                                                    synthThreeWay{} );
