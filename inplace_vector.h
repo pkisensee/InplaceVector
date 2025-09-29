@@ -752,7 +752,7 @@ constexpr auto erase( inplace_vector<T, Capacity>& vec, const U& value ) ->
   inplace_vector<T, Capacity>::size_type
 {
   // Erases all elements that compare equal to value
-  const auto it = std::remove( vec.begin(), vec.end(), value );
+  const auto it = std::remove( std::begin( vec ), std::end( vec ), value );
   const auto countRemoved = std::distance( it, vec.end() );
   vec.erase( it, vec.end() );
   return detail::asSizeType( countRemoved );
@@ -763,7 +763,7 @@ constexpr auto erase_if( inplace_vector<T, Capacity>& vec, Pred pred ) ->
   inplace_vector<T, Capacity>::size_type
 {
   // Erases all elements that satisfy pred
-  const auto it = std::remove_if( vec.begin(), vec.end(), pred );
+  const auto it = std::remove_if( std::begin( vec ), std::end( vec ), pred );
   const auto countRemoved = std::distance( it, vec.end() );
   vec.erase( it, vec.end() );
   return detail::asSizeType( countRemoved );
