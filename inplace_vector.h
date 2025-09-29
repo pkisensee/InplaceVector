@@ -36,13 +36,13 @@ namespace PKIsensee
 
 // Requirements for object comparisons; see SynthThreeWay below
 template <typename T>
-concept BooleanTestableImpl = std::convertible_to<T, bool>;
+concept InplaceVectorBooleanTestableImpl = std::convertible_to<T, bool>;
 
 template <typename T>
-concept BooleanTestable = BooleanTestableImpl<T>
-  && requires( T && a )
+concept InplaceVectorBooleanTestable = InplaceVectorBooleanTestableImpl<T>
+  && requires( T&& t )
 {
-  { !static_cast<T&&>( a ) } -> BooleanTestableImpl;
+  { !std::forward<T>( t ) } -> InplaceVectorBooleanTestableImpl;
 };
 
 namespace detail
@@ -61,9 +61,10 @@ namespace detail
     return static_cast<size_t>( d );
   }
 
-  }; // namespace detail
+}; // namespace detail
 
-
+///////////////////////////////////////////////////////////////////////////////
+// 
 // Contiguous vector of objects T on stack; maximum size Capacity.
 // Performs no memory allocations.
 
@@ -659,8 +660,8 @@ private:
     constexpr auto operator()( const U& lhs, const V& rhs ) const noexcept
       requires requires
     {
-      { lhs < rhs } -> BooleanTestable;
-      { lhs > rhs } -> BooleanTestable;
+      { lhs < rhs } -> InplaceVectorBooleanTestable;
+      { lhs > rhs } -> InplaceVectorBooleanTestable;
     }
     {
       if constexpr ( std::three_way_comparable_with<U, V> )
